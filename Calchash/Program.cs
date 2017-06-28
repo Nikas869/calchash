@@ -100,7 +100,7 @@ namespace Calchash
 
             int answer = Console.Read();
 
-            if (answer == 121)
+            if (answer == 'y')
             {
                 return true;
             }
@@ -122,13 +122,18 @@ namespace Calchash
                 return false;
             }
 
-            if (!File.OpenWrite(args[1]).CanWrite)
+            try
+            {
+                using (var stream = File.OpenWrite(args[1]))
+                {
+                    return stream.CanWrite;
+                }
+            }
+            catch (UnauthorizedAccessException)
             {
                 Console.WriteLine("Error: file is read only");
                 return false;
             }
-
-            return true;
         }
     }
 }
