@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Calchash
 {
@@ -11,27 +14,63 @@ namespace Calchash
 
         static void Main(string[] args)
         {
+            var sw = new Stopwatch();
+            sw.Start();
             if (CheckArgs(args) == false)
             {
                 Environment.Exit(0);
             }
+            Console.WriteLine(sw.ElapsedTicks);
 
             currentDirectoryInfo = new DirectoryInfo(args[0]);
             currentFileInfo = new FileInfo(args[1]);
 
-            if (!AskConfirmation(currentDirectoryInfo, currentFileInfo))
-            {
-                Console.WriteLine("Aborting");
-                Environment.Exit(0);
-            }
+            //if (!AskConfirmation(currentDirectoryInfo, currentFileInfo))
+            //{
+            //    Console.WriteLine("Aborting");
+            //    Environment.Exit(0);
+            //}
 
             var filesList = new List<FileInfo>();
             GatherFilesInformation(currentDirectoryInfo, ref filesList);
+            Console.WriteLine(sw.ElapsedTicks);
+
+            var filesHash = CalculateHash(filesList);
+            Console.WriteLine(sw.ElapsedTicks);
+
+            WriteResult(currentFileInfo, filesHash);
+            Console.WriteLine(sw.ElapsedTicks);
+        }
+
+        private static void WriteResult(FileInfo fileInfo, Dictionary<string, string> filesHash)
+        {
+            using (FileStream stream = fileInfo.OpenWrite())
+            {
+                using (StreamWriter sw = new StreamWriter(stream))
+                {
+                    foreach (var hash in filesHash)
+                    {
+                        sw.WriteLine($"{hash.Value} {hash.Key}");
+                    }
+                }
+            }
+        }
+
+        private static Dictionary<string, string> CalculateHash(List<FileInfo> filesList)
+        {
+            var filesHash = new Dictionary<string, string>();
+            var sha = new SHA256Managed();
 
             foreach (var fileInfo in filesList)
             {
-                Console.WriteLine(fileInfo.FullName);
+                using (FileStream stream = fileInfo.OpenRead())
+                {
+                    byte[] checksum = sha.ComputeHash(stream);
+                    filesHash.Add(fileInfo.FullName, BitConverter.ToString(checksum).Replace("-", String.Empty));
+                }
             }
+
+            return filesHash;
         }
 
         private static void GatherFilesInformation(DirectoryInfo directoryInfo, ref List<FileInfo> filesList)
@@ -43,7 +82,13 @@ namespace Calchash
 
             foreach (var directory in directoryInfo.GetDirectories())
             {
-                GatherFilesInformation(directory, ref filesList);
+                try
+                {
+                    GatherFilesInformation(directory, ref filesList);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
             }
         }
 
