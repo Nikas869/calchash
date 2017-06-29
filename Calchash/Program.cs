@@ -22,12 +22,6 @@ namespace Calchash
             currentDirectoryInfo = new DirectoryInfo(args[0]);
             currentFileInfo = new FileInfo(args[1]);
 
-            if (!AskConfirmation(currentDirectoryInfo, currentFileInfo))
-            {
-                Console.WriteLine("Aborting");
-                Environment.Exit(0);
-            }
-
             var filesList = new ConcurrentBag<FileInfo>();
             GatherFilesInformation(currentDirectoryInfo, filesList);
 
@@ -58,6 +52,7 @@ namespace Calchash
             var filesHash = new ConcurrentDictionary<string, FileInfoStruct>();
             var sha = new SHA256Managed();
             long elapsedTimeTemp = 0;
+            var lockObject = new object();
 
             Parallel.ForEach(
                 filesList,
@@ -68,8 +63,12 @@ namespace Calchash
                     sw.Start();
                     using (FileStream stream = fileInfo.OpenRead())
                     {
-                        byte[] checksum = sha.ComputeHash(stream);
-                        filesHash.GetOrAdd(BitConverter.ToString(checksum).Replace("-", String.Empty),
+                        byte[] hash;
+                        lock (lockObject)
+                        {
+                            hash = sha.ComputeHash(stream);
+                        }
+                        filesHash.GetOrAdd(BitConverter.ToString(hash).Replace("-", String.Empty),
                             new FileInfoStruct(fileInfo.FullName, fileInfo.Length));
                     }
                     sw.Stop();
@@ -103,22 +102,6 @@ namespace Calchash
                     {
                     }
                 });
-        }
-
-        private static bool AskConfirmation(DirectoryInfo directoryInfo, FileInfo fileInfo)
-        {
-            Console.WriteLine($"Directory: {directoryInfo.FullName}");
-            Console.WriteLine($"File: {fileInfo.FullName}");
-            Console.WriteLine("Continue? (y/n)");
-
-            int answer = Console.Read();
-
-            if (answer == 'y')
-            {
-                return true;
-            }
-
-            return false;
         }
 
         private static bool CheckArgs(string[] args)
