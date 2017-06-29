@@ -1,17 +1,14 @@
 ﻿namespace Calchash
 {
-    partial class Program
+    public struct FileInfoStruct
     {
-        struct FileInfoStruct
-        {
-            public string Path { get; }
-            public long Size { get; }
+        public string Path { get; }
+        public long Size { get; }
 
-            public FileInfoStruct(string path, long size)
-            {
-                Path = path;
-                Size = size;
-            }
+        public FileInfoStruct(string path, long size)
+        {
+            Path = path;
+            Size = size;
         }
     }
 }

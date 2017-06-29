@@ -6,33 +6,36 @@ namespace Calchash
     class ExecutionStopwatch
     {
         [DllImport("kernel32.dll")]
-        private static extern long GetThreadTimes
-        (IntPtr threadHandle, out long createionTime,
-            out long exitTime, out long kernelTime, out long userTime);
+        private static extern long GetThreadTimes(
+            IntPtr threadHandle, 
+            out long createionTime,
+            out long exitTime, 
+            out long kernelTime, 
+            out long userTime);
 
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetCurrentThread();
 
-        private long mEndTimeStamp;
-        private long mStartTimeStamp;
+        private long endTimeStamp;
+        private long startTimeStamp;
 
         public void Start()
         {
             var timestamp = GetThreadTimes();
-            mStartTimeStamp = timestamp;
+            startTimeStamp = timestamp;
         }
 
         public void Stop()
         {
             var timestamp = GetThreadTimes();
-            mEndTimeStamp = timestamp;
+            endTimeStamp = timestamp;
         }
 
         public long Elapsed
         {
             get
             {
-                var elapsed = (mEndTimeStamp - mStartTimeStamp) / 10000;
+                var elapsed = (endTimeStamp - startTimeStamp) / 10000;
                 return elapsed;
             }
         }
