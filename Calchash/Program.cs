@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
 
 namespace Calchash
 {
@@ -64,7 +65,7 @@ namespace Calchash
                         sw.WriteLine($"{hash.Value} {hash.Key}");
                     }
 
-                    sw.WriteLine($"Performance: {filesSize / elapsedTime / 1000} MB/s (by CPU time)");
+                    sw.WriteLine($"Performance: {filesSize / 1000 / elapsedTime} MB/s (by CPU time)");
                 }
             }
         }
@@ -73,22 +74,24 @@ namespace Calchash
         {
             var filesHash = new Dictionary<string, string>();
             var sha = new SHA256Managed();
-            filesSize = 0;
+            long filesSizeTemp = 0;
             var sw = new Stopwatch();
             sw.Start();
 
-            foreach (var fileInfo in filesList)
+            Parallel.ForEach(filesList, fileInfo =>
             {
                 using (FileStream stream = fileInfo.OpenRead())
                 {
                     byte[] checksum = sha.ComputeHash(stream);
                     filesHash.Add(fileInfo.FullName, BitConverter.ToString(checksum).Replace("-", String.Empty));
-                    filesSize += fileInfo.Length;
+                    filesSizeTemp += fileInfo.Length;
                 }
-            }
+            });
 
             sw.Stop();
             elapsedTime = sw.ElapsedMilliseconds;
+
+            filesSize = filesSizeTemp;
 
             return filesHash;
         }
