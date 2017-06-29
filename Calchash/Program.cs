@@ -17,7 +17,6 @@ namespace Calchash
         static void Main(string[] args)
         {
             var sw = new Stopwatch();
-            sw.Start();
 
             if (CheckArgs(args) == false)
             {
@@ -33,8 +32,10 @@ namespace Calchash
                 Environment.Exit(0);
             }
 
-            var filesList = new List<FileInfo>();
-            GatherFilesInformation(currentDirectoryInfo, ref filesList);
+            sw.Start();
+
+            var filesList = new ConcurrentBag<FileInfo>();
+            GatherFilesInformation(currentDirectoryInfo, filesList);
 
             Console.WriteLine(sw.ElapsedMilliseconds / 1000);
 
@@ -75,7 +76,7 @@ namespace Calchash
             }
         }
 
-        private static ConcurrentDictionary<string, FileInfoStruct> CalculateHash(List<FileInfo> filesList, out long elapsedTime)
+        private static ConcurrentDictionary<string, FileInfoStruct> CalculateHash(ConcurrentBag<FileInfo> filesList, out long elapsedTime)
         {
             var filesHash = new ConcurrentDictionary<string, FileInfoStruct>();
             var sha = new SHA256Managed();
@@ -105,23 +106,25 @@ namespace Calchash
             return filesHash;
         }
 
-        private static void GatherFilesInformation(DirectoryInfo directoryInfo, ref List<FileInfo> filesList)
+        private static void GatherFilesInformation(DirectoryInfo directoryInfo, ConcurrentBag<FileInfo> filesList)
         {
             foreach (var fileInfo in directoryInfo.GetFiles())
             {
                 filesList.Add(fileInfo);
             }
 
-            foreach (var directory in directoryInfo.GetDirectories())
-            {
-                try
+            Parallel.ForEach(
+                directoryInfo.GetDirectories(),
+                directory =>
                 {
-                    GatherFilesInformation(directory, ref filesList);
-                }
-                catch (UnauthorizedAccessException)
-                {
-                }
-            }
+                    try
+                    {
+                        GatherFilesInformation(directory, filesList);
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                    }
+                });
         }
 
         private static bool AskConfirmation(DirectoryInfo directoryInfo, FileInfo fileInfo)
