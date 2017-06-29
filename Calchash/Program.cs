@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
-using System.Text;
 
 namespace Calchash
 {
@@ -14,35 +13,47 @@ namespace Calchash
 
         static void Main(string[] args)
         {
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
+#endif
             if (CheckArgs(args) == false)
             {
                 Environment.Exit(0);
             }
+#if DEBUG
             Console.WriteLine(sw.ElapsedTicks);
+#endif
 
             currentDirectoryInfo = new DirectoryInfo(args[0]);
             currentFileInfo = new FileInfo(args[1]);
 
-            //if (!AskConfirmation(currentDirectoryInfo, currentFileInfo))
-            //{
-            //    Console.WriteLine("Aborting");
-            //    Environment.Exit(0);
-            //}
+#if !DEBUG
+            if (!AskConfirmation(currentDirectoryInfo, currentFileInfo))
+            {
+                Console.WriteLine("Aborting");
+                Environment.Exit(0);
+            }
+#endif
 
             var filesList = new List<FileInfo>();
             GatherFilesInformation(currentDirectoryInfo, ref filesList);
+#if DEBUG
             Console.WriteLine(sw.ElapsedTicks);
+#endif
+            long filesSize, elapsedTime;
+            var filesHash = CalculateHash(filesList, out filesSize, out elapsedTime);
+#if DEBUG
+            Console.WriteLine(sw.ElapsedTicks);
+#endif
 
-            var filesHash = CalculateHash(filesList);
+            WriteResult(currentFileInfo, filesHash, filesSize, elapsedTime);
+#if DEBUG
             Console.WriteLine(sw.ElapsedTicks);
-
-            WriteResult(currentFileInfo, filesHash);
-            Console.WriteLine(sw.ElapsedTicks);
+#endif
         }
 
-        private static void WriteResult(FileInfo fileInfo, Dictionary<string, string> filesHash)
+        private static void WriteResult(FileInfo fileInfo, Dictionary<string, string> filesHash, long filesSize, long elapsedTime)
         {
             using (FileStream stream = fileInfo.OpenWrite())
             {
@@ -52,14 +63,19 @@ namespace Calchash
                     {
                         sw.WriteLine($"{hash.Value} {hash.Key}");
                     }
+
+                    sw.WriteLine($"Performance: {filesSize / elapsedTime / 1000} MB/s (by CPU time)");
                 }
             }
         }
 
-        private static Dictionary<string, string> CalculateHash(List<FileInfo> filesList)
+        private static Dictionary<string, string> CalculateHash(List<FileInfo> filesList, out long filesSize, out long elapsedTime)
         {
             var filesHash = new Dictionary<string, string>();
             var sha = new SHA256Managed();
+            filesSize = 0;
+            var sw = new Stopwatch();
+            sw.Start();
 
             foreach (var fileInfo in filesList)
             {
@@ -67,8 +83,12 @@ namespace Calchash
                 {
                     byte[] checksum = sha.ComputeHash(stream);
                     filesHash.Add(fileInfo.FullName, BitConverter.ToString(checksum).Replace("-", String.Empty));
+                    filesSize += fileInfo.Length;
                 }
             }
+
+            sw.Stop();
+            elapsedTime = sw.ElapsedMilliseconds;
 
             return filesHash;
         }
