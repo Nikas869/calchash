@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
@@ -16,8 +14,6 @@ namespace Calchash
 
         static void Main(string[] args)
         {
-            var sw = new Stopwatch();
-
             if (CheckArgs(args) == false)
             {
                 Environment.Exit(0);
@@ -25,28 +21,20 @@ namespace Calchash
 
             currentDirectoryInfo = new DirectoryInfo(args[0]);
             currentFileInfo = new FileInfo(args[1]);
-            
+
             if (!AskConfirmation(currentDirectoryInfo, currentFileInfo))
             {
                 Console.WriteLine("Aborting");
                 Environment.Exit(0);
             }
 
-            sw.Start();
-
             var filesList = new ConcurrentBag<FileInfo>();
             GatherFilesInformation(currentDirectoryInfo, filesList);
-
-            Console.WriteLine(sw.ElapsedMilliseconds / 1000);
 
             long elapsedTime;
             var filesHash = CalculateHash(filesList, out elapsedTime);
 
-            Console.WriteLine(sw.ElapsedMilliseconds / 1000);
-
             WriteResult(currentFileInfo, filesHash, elapsedTime);
-
-            Console.WriteLine(sw.ElapsedMilliseconds / 1000);
         }
 
         private static void WriteResult(FileInfo fileInfo, ConcurrentDictionary<string, FileInfoStruct> filesHash, long elapsedTime)
@@ -54,25 +42,14 @@ namespace Calchash
             using (StreamWriter sw = new StreamWriter(fileInfo.OpenWrite()))
             {
                 long filesSize = 0;
-                object lockObject = new object();
 
-                Parallel.ForEach(
-                    filesHash,
-                    () => 0L,
-                    (hash, loopState, partialFileSize) =>
-                    {
-                        lock (lockObject)
-                        {
-                            sw.WriteLine($"{hash.Key} {hash.Value.Path}");
-                        }
-                        partialFileSize += hash.Value.Size;
-
-                        return partialFileSize;
-                    },
-                    partialFileSize => { Interlocked.Add(ref filesSize, partialFileSize); });
+                foreach (var hash in filesHash)
+                {
+                    sw.WriteLine($"{hash.Key} {hash.Value.Path}");
+                    filesSize += hash.Value.Size;
+                }
 
                 sw.WriteLine($"Performance: {filesSize / 1000 / elapsedTime} MB/s (by CPU time)");
-                sw.WriteLine($"Files: {filesHash.Count}, elapsed time: {elapsedTime / 1000}sec, files size: {filesSize / 1000000}MB");
             }
         }
 
@@ -87,7 +64,7 @@ namespace Calchash
                 () => 0L,
                 (fileInfo, loopState, partialElapsedTime) =>
                 {
-                    var sw = new Stopwatch();
+                    var sw = new ExecutionStopwatch();
                     sw.Start();
                     using (FileStream stream = fileInfo.OpenRead())
                     {
@@ -95,7 +72,8 @@ namespace Calchash
                         filesHash.GetOrAdd(BitConverter.ToString(checksum).Replace("-", String.Empty),
                             new FileInfoStruct(fileInfo.FullName, fileInfo.Length));
                     }
-                    partialElapsedTime += sw.ElapsedMilliseconds;
+                    sw.Stop();
+                    partialElapsedTime += sw.Elapsed;
 
                     return partialElapsedTime;
                 },
@@ -161,6 +139,7 @@ namespace Calchash
             {
                 using (var stream = File.OpenWrite(args[1]))
                 {
+                    stream.SetLength(0);
                     return stream.CanWrite;
                 }
             }
