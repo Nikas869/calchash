@@ -9,55 +9,14 @@ namespace Calchash
 {
     class HashCalculator
     {
-        public DirectoryInfo DirectoryInfo { get; }
-        public FileInfo FileInfo { get; }
+        private readonly ConcurrentBag<FileInfo> files;
 
-        public HashCalculator(DirectoryInfo directoryInfo, FileInfo fileInfo)
+        public HashCalculator(ConcurrentBag<FileInfo> files)
         {
-            DirectoryInfo = directoryInfo;
-            FileInfo = fileInfo;
+            this.files = files;
         }
 
-
-        public void Calculate()
-        {
-            var filesList = new ConcurrentBag<FileInfo>();
-            GatherFilesInformation(DirectoryInfo, filesList);
-
-            var filesHash = CalculateHash(filesList, out long elapsedTime);
-
-            WriteResult(FileInfo, filesHash, elapsedTime);
-        }
-
-        private static void WriteResult(
-            FileInfo fileInfo,
-            ConcurrentDictionary<string, FileInfoStruct> filesHash,
-            long elapsedTime)
-        {
-            try
-            {
-                using (var sw = new StreamWriter(fileInfo.OpenWrite()))
-                {
-                    long filesSize = 0;
-
-                    foreach (var hash in filesHash)
-                    {
-                        sw.WriteLine($"{hash.Key} {hash.Value.Path}");
-                        filesSize += hash.Value.Size;
-                    }
-
-                    sw.WriteLine($"Performance: {filesSize / 1000 / elapsedTime} MB/s (by CPU time)");
-                }
-            }
-            catch (IOException e)
-            {
-                Console.WriteLine(e.ToString());
-            }
-        }
-
-        private static ConcurrentDictionary<string, FileInfoStruct> CalculateHash(
-            ConcurrentBag<FileInfo> filesList,
-            out long elapsedTime)
+        public ConcurrentDictionary<string, FileInfoStruct> Calculate(out long elapsedTime)
         {
             var filesHash = new ConcurrentDictionary<string, FileInfoStruct>();
             var sha = new SHA256Managed();
@@ -65,7 +24,7 @@ namespace Calchash
             var lockObject = new object();
 
             Parallel.ForEach(
-                filesList,
+                files,
                 () => 0L,
                 (fileInfo, loopState, partialElapsedTime) =>
                 {
@@ -91,27 +50,6 @@ namespace Calchash
 
             elapsedTime = elapsedTimeTemp;
             return filesHash;
-        }
-
-        private static void GatherFilesInformation(DirectoryInfo directoryInfo, ConcurrentBag<FileInfo> filesList)
-        {
-            foreach (var fileInfo in directoryInfo.GetFiles())
-            {
-                filesList.Add(fileInfo);
-            }
-
-            Parallel.ForEach(
-                directoryInfo.GetDirectories(),
-                directory =>
-                {
-                    try
-                    {
-                        GatherFilesInformation(directory, filesList);
-                    }
-                    catch (UnauthorizedAccessException)
-                    {
-                    }
-                });
         }
     }
 }

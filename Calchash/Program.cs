@@ -12,11 +12,17 @@ namespace Calchash
                 Environment.Exit(0);
             }
 
-            var currentDirectoryInfo = new DirectoryInfo(args[0]);
-            var currentFileInfo = new FileInfo(args[1]);
+            var inputDirectory = new DirectoryInfo(args[0]);
+            var outputFile = new FileInfo(args[1]);
 
-            var hashCalc = new HashCalculator(currentDirectoryInfo, currentFileInfo);
-            hashCalc.Calculate();
+            var filesFinder = new FilesFinder(inputDirectory);
+
+            var hashCalc = new HashCalculator(filesFinder.GetAllFiles());
+            long elapsedCpuTime;
+            var hashes = hashCalc.Calculate(out elapsedCpuTime);
+
+            var fileWriter = new FileWriter(outputFile);
+            fileWriter.Write(hashes, elapsedCpuTime);
         }
 
         
