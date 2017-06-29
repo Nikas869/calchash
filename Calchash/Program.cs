@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Calchash
 {
-    class Program
+    partial class Program
     {
         private static DirectoryInfo currentDirectoryInfo;
         private static FileInfo currentFileInfo;
@@ -25,29 +25,40 @@ namespace Calchash
             var filesList = new ConcurrentBag<FileInfo>();
             GatherFilesInformation(currentDirectoryInfo, filesList);
 
-            long elapsedTime;
-            var filesHash = CalculateHash(filesList, out elapsedTime);
+            var filesHash = CalculateHash(filesList, out long elapsedTime);
 
             WriteResult(currentFileInfo, filesHash, elapsedTime);
         }
 
-        private static void WriteResult(FileInfo fileInfo, ConcurrentDictionary<string, FileInfoStruct> filesHash, long elapsedTime)
+        private static void WriteResult(
+            FileInfo fileInfo, 
+            ConcurrentDictionary<string, FileInfoStruct> filesHash, 
+            long elapsedTime)
         {
-            using (StreamWriter sw = new StreamWriter(fileInfo.OpenWrite()))
+            try
             {
-                long filesSize = 0;
-
-                foreach (var hash in filesHash)
+                using (var sw = new StreamWriter(fileInfo.OpenWrite()))
                 {
-                    sw.WriteLine($"{hash.Key} {hash.Value.Path}");
-                    filesSize += hash.Value.Size;
-                }
+                    long filesSize = 0;
 
-                sw.WriteLine($"Performance: {filesSize / 1000 / elapsedTime} MB/s (by CPU time)");
+                    foreach (var hash in filesHash)
+                    {
+                        sw.WriteLine($"{hash.Key} {hash.Value.Path}");
+                        filesSize += hash.Value.Size;
+                    }
+
+                    sw.WriteLine($"Performance: {filesSize / 1000 / elapsedTime} MB/s (by CPU time)");
+                }
+            }
+            catch (IOException e)
+            {
+                Console.WriteLine(e.ToString());
             }
         }
 
-        private static ConcurrentDictionary<string, FileInfoStruct> CalculateHash(ConcurrentBag<FileInfo> filesList, out long elapsedTime)
+        private static ConcurrentDictionary<string, FileInfoStruct> CalculateHash(
+            ConcurrentBag<FileInfo> filesList,
+            out long elapsedTime)
         {
             var filesHash = new ConcurrentDictionary<string, FileInfoStruct>();
             var sha = new SHA256Managed();
@@ -61,25 +72,25 @@ namespace Calchash
                 {
                     var sw = new ExecutionStopwatch();
                     sw.Start();
-                    using (FileStream stream = fileInfo.OpenRead())
+
+                    using (var stream = fileInfo.OpenRead())
                     {
                         byte[] hash;
                         lock (lockObject)
                         {
                             hash = sha.ComputeHash(stream);
                         }
-                        filesHash.GetOrAdd(BitConverter.ToString(hash).Replace("-", String.Empty),
+                        filesHash.GetOrAdd(BitConverter.ToString(hash).Replace("-", string.Empty),
                             new FileInfoStruct(fileInfo.FullName, fileInfo.Length));
                     }
-                    sw.Stop();
-                    partialElapsedTime += sw.Elapsed;
 
-                    return partialElapsedTime;
+                    sw.Stop();
+
+                    return sw.Elapsed;
                 },
                 partialElapsedTime => { Interlocked.Add(ref elapsedTimeTemp, partialElapsedTime); });
 
             elapsedTime = elapsedTimeTemp;
-
             return filesHash;
         }
 
@@ -118,30 +129,23 @@ namespace Calchash
                 return false;
             }
 
+            return TryWriteToFile(args);
+        }
+
+        private static bool TryWriteToFile(string[] args)
+        {
             try
             {
                 using (var stream = File.OpenWrite(args[1]))
                 {
                     stream.SetLength(0);
-                    return stream.CanWrite;
+                    return true;
                 }
             }
             catch (UnauthorizedAccessException)
             {
-                Console.WriteLine("Error: file is read only");
+                Console.WriteLine("Error: result file is read only");
                 return false;
-            }
-        }
-
-        struct FileInfoStruct
-        {
-            public string Path { get; }
-            public long Size { get; }
-
-            public FileInfoStruct(string path, long size)
-            {
-                Path = path;
-                Size = size;
             }
         }
     }

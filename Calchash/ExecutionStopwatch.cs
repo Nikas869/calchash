@@ -13,43 +13,29 @@ namespace Calchash
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetCurrentThread();
 
-        private long m_endTimeStamp;
-        private long m_startTimeStamp;
-
-        private bool m_isRunning;
+        private long mEndTimeStamp;
+        private long mStartTimeStamp;
 
         public void Start()
         {
-            m_isRunning = true;
-
-            long timestamp = GetThreadTimes();
-            m_startTimeStamp = timestamp;
+            var timestamp = GetThreadTimes();
+            mStartTimeStamp = timestamp;
         }
 
         public void Stop()
         {
-            m_isRunning = false;
-
-            long timestamp = GetThreadTimes();
-            m_endTimeStamp = timestamp;
-        }
-
-        public void Reset()
-        {
-            m_startTimeStamp = 0;
-            m_endTimeStamp = 0;
+            var timestamp = GetThreadTimes();
+            mEndTimeStamp = timestamp;
         }
 
         public long Elapsed
         {
             get
             {
-                long elapsed = (m_endTimeStamp - m_startTimeStamp) / 10000;
+                var elapsed = (mEndTimeStamp - mStartTimeStamp) / 10000;
                 return elapsed;
             }
         }
-
-        public bool IsRunning => m_isRunning;
 
         private long GetThreadTimes()
         {
@@ -64,7 +50,9 @@ namespace Calchash
 
             bool success = Convert.ToBoolean(retcode);
             if (!success)
+            {
                 throw new Exception($"failed to get timestamp. error code: {retcode}");
+            }
 
             long result = kernelTime + userTime;
             return result;
