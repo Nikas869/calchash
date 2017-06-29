@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -14,7 +15,7 @@ namespace Calchash
             this.inputDirectory = inputDirectory;
         }
 
-        public ConcurrentBag<FileInfo> GetAllFiles()
+        public IEnumerable<FileInfo> GetAllFiles()
         {
             var files = new ConcurrentBag<FileInfo>();
 

@@ -47,9 +47,12 @@ namespace Calchash
             long notIntersting;
             long kernelTime, userTime;
 
-            long retcode = GetThreadTimes
-            (threadHandle, out notIntersting,
-                out notIntersting, out kernelTime, out userTime);
+            long retcode = GetThreadTimes(
+                threadHandle, 
+                out notIntersting,
+                out notIntersting, 
+                out kernelTime, 
+                out userTime);
 
             bool success = Convert.ToBoolean(retcode);
             if (!success)

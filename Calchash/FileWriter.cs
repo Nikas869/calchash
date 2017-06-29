@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Calchash
@@ -13,7 +14,7 @@ namespace Calchash
             this.outputFile = outputFile;
         }
 
-        public void Write(ConcurrentDictionary<string, FileInfoStruct> filesHashes, long elapsedTime)
+        public void Write(IDictionary<string, FileInfoStruct> filesHashes, long elapsedTime)
         {
             try
             {

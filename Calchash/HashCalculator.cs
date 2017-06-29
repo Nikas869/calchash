@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
@@ -9,19 +10,17 @@ namespace Calchash
 {
     class HashCalculator
     {
-        private readonly ConcurrentBag<FileInfo> files;
+        private readonly IEnumerable<FileInfo> files;
 
-        public HashCalculator(ConcurrentBag<FileInfo> files)
+        public HashCalculator(IEnumerable<FileInfo> files)
         {
             this.files = files;
         }
 
-        public ConcurrentDictionary<string, FileInfoStruct> Calculate(out long elapsedTime)
+        public IDictionary<string, FileInfoStruct> Calculate(out long elapsedTime)
         {
             var filesHash = new ConcurrentDictionary<string, FileInfoStruct>();
-            var sha = new SHA256Managed();
             long elapsedTimeTemp = 0;
-            var lockObject = new object();
 
             Parallel.ForEach(
                 files,
@@ -33,11 +32,8 @@ namespace Calchash
 
                     using (var stream = fileInfo.OpenRead())
                     {
-                        byte[] hash;
-                        lock (lockObject)
-                        {
-                            hash = sha.ComputeHash(stream);
-                        }
+                        var sha = new SHA256Managed();
+                        var hash = sha.ComputeHash(stream);
                         filesHash.GetOrAdd(BitConverter.ToString(hash).Replace("-", string.Empty),
                             new FileInfoStruct(fileInfo.FullName, fileInfo.Length));
                     }
